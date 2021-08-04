@@ -109,9 +109,9 @@ public class BQAvroBenchMark {
         }
     }
 
-  //  @Benchmark
+    @Benchmark
     public void query(SourceTables sourceTables, Blackhole blackhole) throws Exception {
-        //runQuery(sourceTables.table, blackhole);
+        runQuery(sourceTables.table, blackhole);
     }
 
     public static void runQuery(String srcTable, Blackhole blackhole) throws Exception {
