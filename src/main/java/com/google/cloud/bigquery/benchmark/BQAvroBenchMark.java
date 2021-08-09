@@ -85,6 +85,9 @@ public class BQAvroBenchMark {
             while (!decoder.isEnd()) {
                 // Reusing object row
                 row = datumReader.read(row, decoder);
+
+              //  blackhole.consume(row.toString());
+
                 composeAndConsumeJson(row, blackhole);
             }
 
