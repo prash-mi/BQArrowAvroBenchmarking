@@ -183,13 +183,13 @@ public class BQAvroBenchMark {
         for (ReadRowsResponse response : stream) {
             Preconditions.checkState(response.hasAvroRows());
             cachedRowRes.add(response);
-          //  reader.processRows(response);
+            //  reader.processRows(response);
         }
         return cachedRowRes;
     }
 
     @Benchmark
-    public void processRows( Blackhole blackhole) throws Exception {
+    public void deserializationBenchmark( Blackhole blackhole) throws Exception {
         SimpleRowReader reader =
                 new SimpleRowReader(avroSchema);
         for (ReadRowsResponse res: cachedRowRes){
@@ -201,9 +201,9 @@ public class BQAvroBenchMark {
 
     public static void main(String[] args) throws Exception {
 
-       BQAvroBenchMark bqBenmark = new BQAvroBenchMark();
-       bqBenmark.setUp();
-       bqBenmark.processRows(null);
+   /*     BQAvroBenchMark bqBenmark = new BQAvroBenchMark();
+        bqBenmark.setUp();
+        bqBenmark.deserializationBenchmark(null);//for debugging, Will throw NPE*/
 
     }
 }
