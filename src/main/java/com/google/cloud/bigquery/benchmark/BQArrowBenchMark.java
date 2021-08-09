@@ -87,13 +87,14 @@ public class BQArrowBenchMark {
             // Release buffers from batch (they are still held in the vectors in root).
             deserializedBatch.close();
 
+            // blackhole.consume(root.contentToTSVString());
+
             //Splitting the TSV content by new line and the tabs to get the values as rows
             String[] rows = root.contentToTSVString().split("\n");
             for (String tabbedRow:rows){
                 composeAndConsumeJson(tabbedRow.split("\t"), blackhole);
             }
 
-           // blackhole.consume(root.contentToTSVString());
             // Release buffers from vectors in root.
             root.clear();
 
