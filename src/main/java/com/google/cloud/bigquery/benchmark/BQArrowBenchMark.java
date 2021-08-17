@@ -18,14 +18,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VectorLoader;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
+import org.apache.avro.generic.GenericRecord;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.infra.Blackhole;
@@ -39,7 +38,7 @@ import org.openjdk.jmh.infra.Blackhole;
 public class BQArrowBenchMark {
     private static BigQueryReadClient client;
     private static final String SRC_TABLE_USA_NAMES = "projects/bigquery-public-data/datasets/usa_names/tables/usa_1910_current";
-    private List<ArrowRecordBatch> cachedRes = new ArrayList<>();
+    private List<ArrowRecordBatch> cachedRes =null;
     private ArrowSchema arrowSchema;
 
     /*
@@ -87,18 +86,32 @@ public class BQArrowBenchMark {
             // Release buffers from batch (they are still held in the vectors in root).
             deserializedBatch.close();
 
-            // blackhole.consume(root.contentToTSVString());
+            VarCharVector v1 = (VarCharVector) root.getVector(0);
+            VarCharVector v2 = (VarCharVector) root.getVector(1);
+            BigIntVector v3 = (BigIntVector) root.getVector(2);
+            for (int i = 0; i < root.getRowCount(); i++) {
+                //System.out.println(new String(v1.get(i)) + new String(v2.get(i)) + String.valueOf(v3.get(i)));
+                hashAndConsumeRow(new String(v1.get(i)), new String(v2.get(i)), String.valueOf(v3.get(i)), blackhole);
+            }
 
+
+            // blackhole.consume(root.contentToTSVString());
             //Splitting the TSV content by new line and the tabs to get the values as rows
-            String[] rows = root.contentToTSVString().split("\n");
+         /*   String[] rows = root.contentToTSVString().split("\n");
             for (String tabbedRow:rows){
                 composeAndConsumeJson(tabbedRow.split("\t"), blackhole);
-            }
+            }*/
 
             // Release buffers from vectors in root.
             root.clear();
 
         }
+
+        void hashAndConsumeRow(String s1, String s2, String s3, Blackhole blackhole){
+            String rowStr = s1+s2+s3;
+            blackhole.consume(rowStr.hashCode());
+    }
+
     void composeAndConsumeJson(String[] row, Blackhole blackhole){
         Map<String, String> rowAtr = new HashMap<>();
         rowAtr.put("name", row[0]);
@@ -119,8 +132,9 @@ public class BQArrowBenchMark {
     @Setup
     public void setUp() {
         try {
-            this.client = BigQueryReadClient.create();
-            this.cachedRes = getArrowRowsFromBQStorage();
+            if(this.cachedRes == null){
+                this.cachedRes = getArrowRowsFromBQStorage();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -135,7 +149,8 @@ public class BQArrowBenchMark {
     }
 
 
-    public  List<ArrowRecordBatch> getArrowRowsFromBQStorage(){
+    public  List<ArrowRecordBatch> getArrowRowsFromBQStorage() throws IOException {
+        this.client = BigQueryReadClient.create();
         List<ArrowRecordBatch> cachedRes = new ArrayList<>();
         // Sets your Google Cloud Platform project ID.
         String projectId = "mweb-demos";
@@ -212,9 +227,9 @@ public class BQArrowBenchMark {
     return cachedRes;
     }
 
-    public static void main(String[] args) throws Exception {
-      /*  BQArrowBenchMark bqArrowBenchMark = new BQArrowBenchMark();
+   /* public static void main(String[] args) throws Exception {
+        BQArrowBenchMark bqArrowBenchMark = new BQArrowBenchMark();
         bqArrowBenchMark.setUp();
-        bqArrowBenchMark.deserializationBenchmark(null);//for debugging*/
-    }
+        bqArrowBenchMark.deserializationBenchmark(null);//for debugging
+    }*/
 }
