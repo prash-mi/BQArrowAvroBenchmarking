@@ -49,7 +49,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class BQAvroBenchMark {
     private static BigQueryReadClient client;
     private static final String SRC_TABLE_USA_NAMES = "projects/bigquery-public-data/datasets/usa_names/tables/usa_1910_current";
-    private  List<ReadRowsResponse> cachedRowRes = new ArrayList<>();
+    private  List<ReadRowsResponse> cachedRowRes = null;
     private Schema avroSchema;
 
     private static class SimpleRowReader {
@@ -88,9 +88,15 @@ public class BQAvroBenchMark {
 
               //  blackhole.consume(row.toString());
 
-                composeAndConsumeJson(row, blackhole);
+                //composeAndConsumeJson(row, blackhole);
+                hashAndConsumeRow(row, blackhole);
             }
 
+        }
+
+        void hashAndConsumeRow(GenericRecord row, Blackhole blackhole){//access each filed and consume hash of it
+            String rowStr= row.get("name").toString()+row.get("number").toString()+row.get("state").toString();
+            blackhole.consume(rowStr.hashCode());
         }
 
         void composeAndConsumeJson(GenericRecord row, Blackhole blackhole){
@@ -108,9 +114,9 @@ public class BQAvroBenchMark {
     @Setup
     public void setUp() {
         try {
-            this.client = BigQueryReadClient.create();
-            this.cachedRowRes = getRowsFromBQStorage();//cache the BQ rows to avoid any variation in benchmarking due to network factors
-
+            if(this.cachedRowRes == null) {
+                this.cachedRowRes = getRowsFromBQStorage();//cache the BQ rows to avoid any variation in benchmarking due to network factors
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -118,7 +124,8 @@ public class BQAvroBenchMark {
 
 
 
-    private List<ReadRowsResponse> getRowsFromBQStorage(){
+    private List<ReadRowsResponse> getRowsFromBQStorage() throws IOException {
+        this.client = BigQueryReadClient.create();
         List<ReadRowsResponse> cachedRowRes = new ArrayList<>();
         String projectId = "mweb-demos";
         Integer snapshotMillis = null;
