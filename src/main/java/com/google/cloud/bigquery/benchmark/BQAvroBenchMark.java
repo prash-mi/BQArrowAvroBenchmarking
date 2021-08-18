@@ -6,20 +6,14 @@ import com.google.cloud.bigquery.storage.v1.*;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableModifiers;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableReadOptions;
 import com.google.common.base.Preconditions;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.protobuf.Timestamp;
 import java.io.IOException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.*;
-
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -27,16 +21,11 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 @Fork(value = 1)
 @BenchmarkMode(Mode.AverageTime)
@@ -73,11 +62,8 @@ public class BQAvroBenchMark {
          *
          * @param avroRows object returned from the ReadRowsResponse.
          */
-        public void processRows(ReadRowsResponse res, Blackhole blackhole) throws IOException {
+        public void processRows(ReadRowsResponse res, Blackhole blackhole) throws IOException {////deserialize the values and consume the hash of the values
             AvroRows avroRows = res.getAvroRows();
-            AvroSchema avroSchema = res.getAvroSchema();
-
-
             decoder =
                     DecoderFactory.get()
                             .binaryDecoder(avroRows.getSerializedBinaryRows().toByteArray(), decoder);
@@ -85,27 +71,9 @@ public class BQAvroBenchMark {
             while (!decoder.isEnd()) {
                 // Reusing object row
                 row = datumReader.read(row, decoder);
-
-              //  blackhole.consume(row.toString());
-
-                //composeAndConsumeJson(row, blackhole);
-                hashAndConsumeRow(row, blackhole);
+                blackhole.consume(row.get("name").toString().hashCode()+row.get("state").toString().hashCode()+Long.parseLong(row.get("number").toString()));
             }
 
-        }
-
-        void hashAndConsumeRow(GenericRecord row, Blackhole blackhole){//access each filed and consume hash of it
-            String rowStr= row.get("name").toString()+row.get("number").toString()+row.get("state").toString();
-            blackhole.consume(rowStr.hashCode());
-        }
-
-        void composeAndConsumeJson(GenericRecord row, Blackhole blackhole){
-            Map<String, String>  rowAtr = new HashMap<>();
-            rowAtr.put("name", row.get("name").toString());
-            rowAtr.put("number", row.get("number").toString());
-            rowAtr.put("state", row.get("state").toString());
-            Gson gson = new GsonBuilder().create();
-            blackhole.consume(gson.toJson(rowAtr));//consume to JSON serialisation
         }
 
     }
@@ -193,7 +161,6 @@ public class BQAvroBenchMark {
         for (ReadRowsResponse response : stream) {
             Preconditions.checkState(response.hasAvroRows());
             cachedRowRes.add(response);
-            //  reader.processRows(response);
         }
         return cachedRowRes;
     }
@@ -217,4 +184,3 @@ public class BQAvroBenchMark {
 
     }
 }
-
