@@ -6,14 +6,10 @@ import com.google.cloud.bigquery.storage.v1.*;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableModifiers;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableReadOptions;
 import com.google.common.base.Preconditions;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.protobuf.Timestamp;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -24,7 +20,6 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
-import org.apache.avro.generic.GenericRecord;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.infra.Blackhole;
@@ -74,7 +69,7 @@ public class BQArrowBenchMark {
          *
          * @param batch object returned from the ReadRowsResponse.
          */
-        public void processRows(ArrowRecordBatch batch, Blackhole blackhole) throws IOException {
+        public void processRows(ArrowRecordBatch batch, Blackhole blackhole) throws IOException {//deserialize the values and consume the hash of the values
             org.apache.arrow.vector.ipc.message.ArrowRecordBatch deserializedBatch =
                     MessageSerializer.deserializeRecordBatch(
                             new ReadChannel(
@@ -89,39 +84,16 @@ public class BQArrowBenchMark {
             VarCharVector v1 = (VarCharVector) root.getVector(0);
             VarCharVector v2 = (VarCharVector) root.getVector(1);
             BigIntVector v3 = (BigIntVector) root.getVector(2);
+
             for (int i = 0; i < root.getRowCount(); i++) {
-                //System.out.println(new String(v1.get(i)) + new String(v2.get(i)) + String.valueOf(v3.get(i)));
-                hashAndConsumeRow(new String(v1.get(i)), new String(v2.get(i)), String.valueOf(v3.get(i)), blackhole);
+                blackhole.consume(new String(v1.get(i)).hashCode()+new String(v2.get(i)).hashCode()+v3.getValueAsLong(0));
             }
 
-
-            // blackhole.consume(root.contentToTSVString());
-            //Splitting the TSV content by new line and the tabs to get the values as rows
-         /*   String[] rows = root.contentToTSVString().split("\n");
-            for (String tabbedRow:rows){
-                composeAndConsumeJson(tabbedRow.split("\t"), blackhole);
-            }*/
-
-            // Release buffers from vectors in root.
             root.clear();
 
         }
 
-        void hashAndConsumeRow(String s1, String s2, String s3, Blackhole blackhole){
-            String rowStr = s1+s2+s3;
-            blackhole.consume(rowStr.hashCode());
-    }
-
-    void composeAndConsumeJson(String[] row, Blackhole blackhole){
-        Map<String, String> rowAtr = new HashMap<>();
-        rowAtr.put("name", row[0]);
-        rowAtr.put("number", row[1]);
-        rowAtr.put("state", row[2]);
-        Gson gson = new GsonBuilder().create();
-        blackhole.consume(gson.toJson(rowAtr));//consume to JSON serialisation
-    }
-
-        @Override
+         @Override
         public void close() {
             root.close();
             allocator.close();
@@ -222,14 +194,13 @@ public class BQArrowBenchMark {
             for (ReadRowsResponse response : stream) {
                 Preconditions.checkState(response.hasArrowRecordBatch());
                 cachedRes.add(response.getArrowRecordBatch());
-              // reader.processRows(response.getArrowRecordBatch());
             }
     return cachedRes;
     }
 
-   /* public static void main(String[] args) throws Exception {
-        BQArrowBenchMark bqArrowBenchMark = new BQArrowBenchMark();
+    public static void main(String[] args) throws Exception {
+      /*  BQArrowBenchMark bqArrowBenchMark = new BQArrowBenchMark();
         bqArrowBenchMark.setUp();
-        bqArrowBenchMark.deserializationBenchmark(null);//for debugging
-    }*/
+        bqArrowBenchMark.deserializationBenchmark(null);//for debugging, will throw NPE*/
+    }
 }
