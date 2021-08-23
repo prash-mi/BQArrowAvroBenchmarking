@@ -6,6 +6,7 @@ import com.google.cloud.bigquery.storage.v1.*;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableModifiers;
 import com.google.cloud.bigquery.storage.v1.ReadSession.TableReadOptions;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Timestamp;
 import java.io.IOException;
 import org.apache.avro.Schema;
@@ -32,8 +33,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 @Fork(value = 1)
 @BenchmarkMode(Mode.AverageTime)
-@Warmup(iterations = 1)
-@Measurement(iterations = 3)
+@Warmup(iterations = 2)
+@Measurement(iterations = 10)
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 
@@ -45,6 +46,8 @@ public class BQAvroBenchMark {
     private static SimpleRowReader reader;
     private  List<AvroRows> cachedRowRes = null;
     private Schema avroSchema;
+
+    private static  final List<String> fields = ImmutableList.of("vendor_id","pickup_datetime","rate_code","dropoff_datetime","payment_type","pickup_location_id","dropoff_location_id");//,"dropoff_datetime","passenger_count","trip_distance","trip_distance","pickup_latitude","dropoff_longitude","payment_type","fare_amount","extra","tip_amount","imp_surcharge","pickup_location_id","dropoff_location_id");
 
     private static class SimpleRowReader {
 
@@ -77,7 +80,12 @@ public class BQAvroBenchMark {
            while (!decoder.isEnd()) {
                 // Reusing object row
                 row = datumReader.read(row, decoder);
-                blackhole.consume(row.get("vendor_id").toString().hashCode());//+row.get("state").toString().hashCode()+Long.parseLong(row.get("number").toString()));
+                long hash = 0;
+               // hash = row.get("vendor_id").toString().hashCode();
+                for(String field: fields){
+                    hash += row.get(field)!=null? row.get(field).toString().hashCode():0;
+                }
+                blackhole.consume(hash);
             }
 
         }
@@ -99,6 +107,8 @@ public class BQAvroBenchMark {
 
 
     private List<AvroRows> getRowsFromBQStorage() throws IOException {
+
+
         this.client = BigQueryReadClient.create();
         List<AvroRows> cachedRowRes = new ArrayList<>();
         String projectId = "java-docs-samples-testing";
@@ -109,15 +119,13 @@ public class BQAvroBenchMark {
         }
 
         String parent = String.format("projects/%s", projectId);
-        TableReadOptions options =
-                TableReadOptions.newBuilder()
-                        .addSelectedFields("vendor_id")
-                        //.addSelectedFields("name")
-                       // .addSelectedFields("number")
-                       // .addSelectedFields("state")
-                       // .setRowRestriction("state = \"WA\"")
 
-                        .build();
+        TableReadOptions.Builder tb =
+                TableReadOptions.newBuilder();
+               tb.addAllSelectedFields(fields);
+
+                      //  .addAllSelectedFields(fields)
+        TableReadOptions options = tb.build();
 
         // Start specifying the read session we want created.
         ReadSession.Builder sessionBuilder =
