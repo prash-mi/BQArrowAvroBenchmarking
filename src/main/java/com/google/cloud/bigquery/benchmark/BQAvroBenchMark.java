@@ -33,21 +33,18 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 @Fork(value = 1)
 @BenchmarkMode(Mode.AverageTime)
-@Warmup(iterations = 2)
-@Measurement(iterations = 10)
+@Warmup(iterations = Constants.WARMUP_ITERATIONS)
+@Measurement(iterations = Constants.MEASUREMENT_ITERATIONS)
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 
 
 public class BQAvroBenchMark {
     private static BigQueryReadClient client;
-    private static final String SRC_TABLE = //"projects/bigquery-public-data/datasets/usa_names/tables/usa_1910_current";
-                                                         "projects/bigquery-public-data/datasets/new_york_taxi_trips/tables/tlc_yellow_trips_2017";
+
     private static SimpleRowReader reader;
     private  List<AvroRows> cachedRowRes = null;
     private Schema avroSchema;
-
-    private static  final List<String> fields = ImmutableList.of("vendor_id","pickup_datetime","rate_code","dropoff_datetime","payment_type","pickup_location_id","dropoff_location_id");//,"dropoff_datetime","passenger_count","trip_distance","trip_distance","pickup_latitude","dropoff_longitude","payment_type","fare_amount","extra","tip_amount","imp_surcharge","pickup_location_id","dropoff_location_id");
 
     private static class SimpleRowReader {
 
@@ -71,8 +68,6 @@ public class BQAvroBenchMark {
          * @param avroRows object returned from the ReadRowsResponse.
          */
         public void processRows(AvroRows avroRows, Blackhole blackhole) throws IOException {////deserialize the values and consume the hash of the values
-        //    AvroRows avroRows = res.getAvroRows();
-          //  System.out.println("avroRows.getRowCount(): "+avroRows.getRowCount());
             decoder =
                     DecoderFactory.get()
                             .binaryDecoder(avroRows.getSerializedBinaryRows().toByteArray(), decoder);
@@ -81,9 +76,8 @@ public class BQAvroBenchMark {
                 // Reusing object row
                 row = datumReader.read(row, decoder);
                 long hash = 0;
-               // hash = row.get("vendor_id").toString().hashCode();
-                for(String field: fields){
-                    hash += row.get(field)!=null? row.get(field).toString().hashCode():0;
+                for(String field: Constants.FIELDS){
+                    hash += row.get(field)!=null? row.get(field).toString().hashCode():0;////get to the row level value as String and compute the hashcode
                 }
                 blackhole.consume(hash);
             }
@@ -111,26 +105,23 @@ public class BQAvroBenchMark {
 
         this.client = BigQueryReadClient.create();
         List<AvroRows> cachedRowRes = new ArrayList<>();
-        String projectId = "java-docs-samples-testing";
         Integer snapshotMillis = null;
         String[] args = {null};
         if (args.length > 1) {
             snapshotMillis = Integer.parseInt(args[1]);
         }
 
-        String parent = String.format("projects/%s", projectId);
+        String parent = String.format("projects/%s", Constants.PROJECT_ID);
 
-        TableReadOptions.Builder tb =
-                TableReadOptions.newBuilder();
-               tb.addAllSelectedFields(fields);
-
-                      //  .addAllSelectedFields(fields)
-        TableReadOptions options = tb.build();
+        TableReadOptions options =
+                TableReadOptions.newBuilder()
+                        .addAllSelectedFields(Constants.FIELDS)
+                        .build();
 
         // Start specifying the read session we want created.
         ReadSession.Builder sessionBuilder =
                 ReadSession.newBuilder()
-                        .setTable(SRC_TABLE)
+                        .setTable(Constants.SRC_TABLE)
                         // This API can also deliver data serialized in Apache Avro format.
                         // This example leverages Apache Avro.
                         .setDataFormat(DataFormat.AVRO)
@@ -200,9 +191,6 @@ public class BQAvroBenchMark {
                 .build();
 
         new Runner(opt).run();
-    /*    BQAvroBenchMark bqBenmark = new BQAvroBenchMark();
-        bqBenmark.setUp();
-        bqBenmark.deserializationBenchmark(null);//for debugging, Will throw NPE*/
 
     }
 }
