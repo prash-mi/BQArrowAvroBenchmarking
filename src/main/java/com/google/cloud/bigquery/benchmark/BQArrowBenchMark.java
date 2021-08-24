@@ -23,16 +23,18 @@ import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 @Fork(value = 1)
 @BenchmarkMode(Mode.AverageTime)
-@Warmup(iterations = 2)
-@Measurement(iterations = 5)
+@Warmup(iterations = Constants.WARMUP_ITERATIONS)
+@Measurement(iterations = Constants.MEASUREMENT_ITERATIONS)
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class BQArrowBenchMark {
     private static BigQueryReadClient client;
-    private static final String SRC_TABLE_USA_NAMES = "projects/bigquery-public-data/datasets/usa_names/tables/usa_1910_current";
     private List<ArrowRecordBatch> cachedRes =null;
     private ArrowSchema arrowSchema;
 
@@ -80,16 +82,17 @@ public class BQArrowBenchMark {
             loader.load(deserializedBatch);
             // Release buffers from batch (they are still held in the vectors in root).
             deserializedBatch.close();
+            long hash = 0;
+                for (int i = 0; i < root.getRowCount(); i++) {
+                    for(String field: Constants.FIELDS){
+                        FieldVector fVec = root.getVector(field);//column
+                        hash += fVec.getObject(i).toString().hashCode();//get to the row level value as String and compute the hashcode
+                      //  hash += new String(((VarCharVector)root.getVector(field)).get(i)).hashCode();
+                }
 
-            VarCharVector v1 = (VarCharVector) root.getVector(0);
-            VarCharVector v2 = (VarCharVector) root.getVector(1);
-            BigIntVector v3 = (BigIntVector) root.getVector(2);
-
-            for (int i = 0; i < root.getRowCount(); i++) {
-                blackhole.consume(new String(v1.get(i)).hashCode()+new String(v2.get(i)).hashCode()+v3.getValueAsLong(0));
             }
-
             root.clear();
+            blackhole.consume(hash);
 
         }
 
@@ -125,7 +128,6 @@ public class BQArrowBenchMark {
         this.client = BigQueryReadClient.create();
         List<ArrowRecordBatch> cachedRes = new ArrayList<>();
         // Sets your Google Cloud Platform project ID.
-        String projectId = "mweb-demos";
         Integer snapshotMillis = null;
         String[] args = {null};
         if (args.length > 1) {
@@ -133,23 +135,20 @@ public class BQArrowBenchMark {
         }
 
 
-        String parent = String.format("projects/%s", projectId);
+        String parent = String.format("projects/%s", Constants.PROJECT_ID);
 
 
         // We specify the columns to be projected by adding them to the selected fields,
         // and set a simple filter to restrict which rows are transmitted.
         TableReadOptions options =
                 TableReadOptions.newBuilder()
-                        .addSelectedFields("name")
-                        .addSelectedFields("number")
-                        .addSelectedFields("state")
-                        .setRowRestriction("state = \"WA\"")
+                        .addAllSelectedFields(Constants.FIELDS)
                         .build();
 
         // Start specifying the read session we want created.
         ReadSession.Builder sessionBuilder =
                 ReadSession.newBuilder()
-                        .setTable(SRC_TABLE_USA_NAMES)
+                        .setTable(Constants.SRC_TABLE)
                         // This API can also deliver data serialized in Apache Avro format.
                         // This example leverages Apache Arrow.
                         .setDataFormat(DataFormat.ARROW)
@@ -199,8 +198,11 @@ public class BQArrowBenchMark {
     }
 
     public static void main(String[] args) throws Exception {
-      /*  BQArrowBenchMark bqArrowBenchMark = new BQArrowBenchMark();
-        bqArrowBenchMark.setUp();
-        bqArrowBenchMark.deserializationBenchmark(null);//for debugging, will throw NPE*/
+        Options opt = new OptionsBuilder()
+                .include(BQArrowBenchMark.class.getSimpleName())
+                .forks(1)
+                .build();
+
+        new Runner(opt).run();
     }
 }
