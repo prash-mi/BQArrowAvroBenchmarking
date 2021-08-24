@@ -81,14 +81,23 @@ public class BQArrowBenchMark {
 
             loader.load(deserializedBatch);
             // Release buffers from batch (they are still held in the vectors in root).
+            //  hash += new String(((VarCharVector)root.getVector(field)).get(i)).hashCode();
             deserializedBatch.close();
             long hash = 0;
                 for (int i = 0; i < root.getRowCount(); i++) {
-                    for(String field: Constants.FIELDS){
+                    //"vendor_id","pickup_datetime","rate_code","dropoff_datetime","payment_type","pickup_location_id","dropoff_location_id"
+                   hash += new String(((VarCharVector)root.getVector(0)).get(i)).hashCode();
+                   hash += (String.valueOf(((TimeStampMicroVector)root.getVector(1)).get(i))).hashCode();
+                   hash += new String(((VarCharVector)root.getVector(2)).get(i)).hashCode();
+                   hash += (String.valueOf(((TimeStampMicroVector)root.getVector(3)).get(i))).hashCode();
+                   hash += new String(((VarCharVector)root.getVector(4)).get(i)).hashCode();
+                   hash += new String(((VarCharVector)root.getVector(5)).get(i)).hashCode();
+                   hash += new String(((VarCharVector)root.getVector(6)).get(i)).hashCode();
+                /*    for(String field: Constants.FIELDS){
                         FieldVector fVec = root.getVector(field);//column
                         hash += fVec.getObject(i).toString().hashCode();//get to the row level value as String and compute the hashcode
-                      //  hash += new String(((VarCharVector)root.getVector(field)).get(i)).hashCode();
-                }
+
+                }*/
 
             }
             root.clear();
