@@ -90,7 +90,7 @@ public class BQAvroBenchMarkWithNW {
 
 
     @Benchmark
-    private void getAndDeserializeRowsFromBQStorage(Blackhole blackhole) throws IOException {
+    public void getAndDeserializeRowsFromBQStorage(Blackhole blackhole) throws IOException {
         Integer snapshotMillis = null;
         String[] args = {null};
         if (args.length > 1) {
