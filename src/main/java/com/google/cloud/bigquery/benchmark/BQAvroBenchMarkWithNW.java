@@ -67,7 +67,6 @@ public class BQAvroBenchMarkWithNW {
             decoder =
                     DecoderFactory.get()
                             .binaryDecoder(avroRows.getSerializedBinaryRows().toByteArray(), decoder);
-            blackhole.consume(avroRows);
             while (!decoder.isEnd()) {
                 // Reusing object row
                 row = datumReader.read(row, decoder);
