@@ -187,7 +187,7 @@ public class BQArrowBenchMarkWithNW {
 
     public static void main(String[] args) throws Exception {
         Options opt = new OptionsBuilder()
-                .include(BQArrowBenchMark.class.getSimpleName())
+                .include(BQArrowBenchMarkWithNW.class.getSimpleName())
                 .forks(1)
                 .build();
 
